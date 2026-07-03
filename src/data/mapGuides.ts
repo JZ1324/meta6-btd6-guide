@@ -1,3 +1,4 @@
+import { sourceLinks } from './images'
 import type { ImageKey } from './images'
 
 export type MapDifficulty = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
@@ -45,6 +46,38 @@ export type MapModeGuide = {
   steps: string[]
   priorityTowers: string[]
   warning: string
+}
+
+export type GuideLink = {
+  label: string
+  url: string
+}
+
+export type ChimpsRoundPlan = {
+  rounds: string
+  plan: string
+  reason: string
+}
+
+export type ChimpsGuide = {
+  id: string
+  title: string
+  map: MapProfile
+  routeType: string
+  risk: 'Low' | 'Medium' | 'High' | 'Extreme'
+  summary: string
+  opener: {
+    title: string
+    body: string
+    towers: string[]
+  }
+  buildOrder: string[]
+  roundPlan: ChimpsRoundPlan[]
+  placementNotes: string[]
+  abilityNotes: string[]
+  failChecks: string[]
+  alternateCores: string[]
+  tutorialLinks: GuideLink[]
 }
 
 type MapSeed = string | { name: string; page?: string; hidden?: boolean }
@@ -582,6 +615,234 @@ export function buildMapModeGuide(map: MapProfile, mode: GameMode): MapModeGuide
       ? [...map.coreTowers, 'Stall/debuff support']
       : [...map.coreTowers, 'Cheap cleanup'],
     warning: `${mode.danger} ${mapWarning}`,
+  }
+}
+
+const tutorialSearch = (mapName: string) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(
+    `BTD6 ${mapName} CHIMPS tutorial v55 black border`,
+  )}`
+
+function chimpsRisk(map: MapProfile): ChimpsGuide['risk'] {
+  if (map.difficulty === 'Expert') return map.laneProfile.includes('Multi') ? 'Extreme' : 'High'
+  if (map.difficulty === 'Advanced') return map.placement === 'Tight' ? 'High' : 'Medium'
+  if (map.laneProfile.includes('Multi')) return 'Medium'
+  return 'Low'
+}
+
+function chimpsRouteType(map: MapProfile) {
+  if (map.waterAccess === 'Heavy') return 'Water-control CHIMPS shell'
+  if (map.difficulty === 'Expert') return 'Expert-map precision shell'
+  if (map.placement === 'Tight') return 'Global-support CHIMPS shell'
+  if (map.laneProfile.includes('Multi')) return 'Split-lane control shell'
+  return 'Sauda or Quincy carry shell'
+}
+
+function chimpsOpener(map: MapProfile): ChimpsGuide['opener'] {
+  if (map.waterAccess === 'Heavy') {
+    return {
+      title: 'Water-first opener',
+      body:
+        'Use a Sub or Buccaneer where it sees the longest shared water angle, then add a cheap land tower only where early leaks actually happen.',
+      towers: ['Sub / Buccaneer', 'Dart or Ninja', 'Brickell or Etienne'],
+    }
+  }
+
+  if (map.difficulty === 'Expert') {
+    return {
+      title: 'Verified no-leak opener',
+      body:
+        'Start with the cheapest placement that survives rounds 6-15 on this exact map. Do not improvise the first tower spot on expert maps; one pixel can change the run.',
+      towers: ['Dart / Sniper start', 'Geraldo or Corvus', 'Early Glue/Ice if lanes split'],
+    }
+  }
+
+  if (map.placement === 'Tight' || map.sightlines === 'Blocked') {
+    return {
+      title: 'Angle-safe opener',
+      body:
+        'Place the starter where it covers two bends or a shared choke. If walls block the main carry, use Ninja, Sniper, Ace, Mortar, or Heli to avoid dead sightlines.',
+      towers: ['Ninja', 'Sniper', 'Alchemist', 'Global support'],
+    }
+  }
+
+  return {
+    title: 'Simple carry opener',
+    body:
+      'Use Sauda, Quincy, or a Dart/Ninja start on the longest bend, then save into one buffed midgame carry instead of buying scattered cleanup.',
+    towers: ['Sauda / Quincy', 'Dart or Ninja', 'Alchemist'],
+  }
+}
+
+function chimpsBuildOrder(map: MapProfile) {
+  const order = [
+    'Round 6 start: lock the first tower placement before buying comfort upgrades.',
+    'Before round 24: confirm camo detection or hero ability coverage.',
+    'Before round 28: add lead damage; do not wait until the round starts.',
+    'Before round 40: buy focused MOAB damage plus ceramic cleanup.',
+  ]
+
+  if (map.waterAccess === 'Heavy') {
+    order.push('Midgame: use Sub/Buccaneer scaling, Brickell buffs, or a water-adjacent Village when the map allows it.')
+  } else if (map.sightlines === 'Blocked') {
+    order.push('Midgame: favor towers that ignore obstacles or can sit on the correct side of the blocker.')
+  } else {
+    order.push('Midgame: build one buffed carry, usually with Alchemist and Village support.')
+  }
+
+  order.push(
+    'Rounds 63-78: add ceramic control before the rush round, not after the first leak.',
+    'Rounds 90-95: make DDT detection explicit with camo, lead, black, and speed coverage.',
+    'Rounds 98-100: reserve cash for a final debuff, stall, spike pile, or BAD damage upgrade.',
+  )
+
+  return order
+}
+
+function chimpsRoundPlan(map: MapProfile): ChimpsRoundPlan[] {
+  const denseLanePlan = map.laneProfile.includes('Multi')
+    ? 'Split coverage across first-contact lanes, then centralize damage where the lanes overlap.'
+    : 'Keep most damage on the longest bend so pierce and buffs get full value.'
+  const linePlan = map.sightlines === 'Blocked'
+    ? 'Use global or obstacle-proof damage because line-of-sight blockers can waste expensive towers.'
+    : 'Use direct DPS and debuffs at the densest bend.'
+  const waterPlan = map.waterAccess === 'Heavy'
+    ? 'Water towers can carry the run; put land towers in support range rather than forcing land DPS.'
+    : 'Land DPS needs to solve the full route; water is not a fallback here.'
+
+  return [
+    {
+      rounds: '6-28',
+      plan: `${denseLanePlan} Buy camo and lead coverage on schedule.`,
+      reason: 'Most failed CHIMPS runs start with a greedy opener that misses the first property checks.',
+    },
+    {
+      rounds: '40',
+      plan: 'Have one clear MOAB popper and one cleanup layer behind it.',
+      reason: 'A tower that pops the MOAB but loses the ceramics is not a real round-40 answer.',
+    },
+    {
+      rounds: '49-64',
+      plan: `${linePlan} Add Glue, Ice, stun, or high-pierce cleanup before round 63.`,
+      reason: 'Dense ceramics punish single-target carries and late support purchases.',
+    },
+    {
+      rounds: '76-78',
+      plan: 'Save at least one ability or stall for regrow ceramics and stacked BFB pressure.',
+      reason: 'These rounds test cleanup more than raw MOAB damage.',
+    },
+    {
+      rounds: '90-95',
+      plan: `${waterPlan} Confirm DDT detection, decamo, slowdown, and lead-popping in the same lane.`,
+      reason: 'DDTs combine speed, camo, black, and lead properties, so partial coverage leaks fast.',
+    },
+    {
+      rounds: '98-100',
+      plan: 'Use final cash on debuffs, stalls, and BAD damage. Keep the BAD path clear of wasted targeting.',
+      reason: 'Round 98 is the density check; round 100 is the single-target damage check.',
+    },
+  ]
+}
+
+function chimpsPlacementNotes(map: MapProfile) {
+  const notes = [
+    map.laneProfile.includes('Multi')
+      ? 'Place the first real carry where lanes overlap or where retargeting does not waste shots.'
+      : 'Prioritize the longest curve or double-back section for the main carry.',
+    map.placement === 'Tight'
+      ? 'Reserve high-value footprints early; cramped maps punish late Village, Alchemist, and Spike Factory placement.'
+      : 'Leave room around the main carry for Alchemist, Village, Glue, and Ice support.',
+    map.sightlines === 'Blocked'
+      ? 'Before committing to Super, Dartling, Tack, or Ace lines, check whether terrain blocks the important lane.'
+      : 'Set strong towers slightly before the bend so projectiles hit bloons while they are still grouped.',
+  ]
+
+  if (map.waterAccess !== 'None') {
+    notes.push('If water covers multiple lanes, test Submerge/Sub Commander, Brickell, or Carrier support before land-only routes.')
+  }
+
+  return notes
+}
+
+function chimpsAbilityNotes(map: MapProfile) {
+  const notes = [
+    'Round 63: hold at least one ceramic-control ability unless your passive cleanup is already proven.',
+    'Round 76: prepare for regrow ceramics; do not spend the same ability too early on round 75.',
+    'Round 95: use DDT control deliberately instead of panic-casting every ability at once.',
+    'Round 98: stagger debuffs and stalls so fortified BFBs do not exit as one large ceramic wave.',
+  ]
+
+  if (map.difficulty === 'Expert') {
+    notes.unshift('Expert maps: record or copy ability timings from a tutorial until the route is consistent.')
+  }
+
+  return notes
+}
+
+function chimpsFailChecks(map: MapProfile) {
+  const checks = [
+    'If round 24 leaks, the route needs earlier camo coverage, not more late-game DPS.',
+    'If round 40 breaks into ceramics too close to the exit, move the MOAB popper earlier or add cleanup behind it.',
+    'If round 63 leaks, buy control before round 60 and stop saving through the ceramic rush.',
+    'If round 95 leaks, audit camo, lead, black, slowdown, and targeting separately.',
+  ]
+
+  if (map.laneProfile.includes('Multi')) {
+    checks.push('If only one lane leaks, split utility or retarget global towers instead of buffing the winning lane.')
+  }
+
+  if (map.placement === 'Tight') {
+    checks.push('If support does not fit later, restart with Village/Alchemist footprints reserved from the opener.')
+  }
+
+  return checks
+}
+
+function chimpsAlternateCores(map: MapProfile) {
+  if (map.waterAccess === 'Heavy') {
+    return ['Brickell + Sub Commander', 'Carrier Flagship support', 'Pirate Lord cleanup', 'Popseidon if the map supports it']
+  }
+
+  if (map.difficulty === 'Expert') {
+    return ['Geraldo utility route', 'Corvus micro route', 'Ninja + Alchemist + Glue', 'Sniper/Ace global support']
+  }
+
+  if (map.sightlines === 'Blocked' || map.placement === 'Tight') {
+    return ['Ninja + Alchemist', 'Elite Sniper support', 'Permaspike backline', 'Mortar or Ace cleanup']
+  }
+
+  return ['Sauda + buffed Tack', 'Quincy + Dart/Ninja', 'Ninja + Alchemist', 'Perma-Spike safety anchor']
+}
+
+export function buildChimpsGuide(map: MapProfile): ChimpsGuide {
+  const opener = chimpsOpener(map)
+
+  return {
+    id: `${map.slug}-chimps-deep`,
+    title: `${map.name} CHIMPS deep guide`,
+    map,
+    routeType: chimpsRouteType(map),
+    risk: chimpsRisk(map),
+    summary:
+      `${map.name} is a ${map.difficulty.toLowerCase()} CHIMPS clear with ${map.laneProfile.toLowerCase()}, `
+      + `${map.sightlines.toLowerCase()} sightlines, and ${map.placement.toLowerCase()} placement. `
+      + 'Use this as the planning route, then confirm exact pixels and timings with a current video.',
+    opener,
+    buildOrder: chimpsBuildOrder(map),
+    roundPlan: chimpsRoundPlan(map),
+    placementNotes: chimpsPlacementNotes(map),
+    abilityNotes: chimpsAbilityNotes(map),
+    failChecks: chimpsFailChecks(map),
+    alternateCores: chimpsAlternateCores(map),
+    tutorialLinks: [
+      { label: `${map.name} CHIMPS YouTube tutorials`, url: tutorialSearch(map.name) },
+      {
+        label: 'Ethan Reid CHIMPS playlist',
+        url: 'https://www.youtube.com/playlist?list=PLkcaGnsfi9tFuyg451t4a3-6606DmuJsc',
+      },
+      { label: 'Bloons Wiki CHIMPS strategies', url: sourceLinks.wikiChimpsStrategies },
+      { label: 'BTD6 Index challenge routes', url: sourceLinks.btd6Index },
+    ],
   }
 }
 

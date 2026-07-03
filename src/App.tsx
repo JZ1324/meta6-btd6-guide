@@ -10,8 +10,11 @@ import {
   ExternalLink,
   Filter,
   Gem,
+  ListChecks,
   Map,
+  PlayCircle,
   Search,
+  ShieldCheck,
   Sparkles,
   Trophy,
   TrendingDown,
@@ -44,12 +47,13 @@ import type {
   TowerRating,
 } from './data/content'
 import {
+  buildChimpsGuide,
   buildMapModeGuide,
   gameModes,
   mapProfiles,
   totalMapModeGuides,
 } from './data/mapGuides'
-import type { GameMode, MapModeGuide, MapProfile } from './data/mapGuides'
+import type { ChimpsGuide, GameMode, MapModeGuide, MapProfile } from './data/mapGuides'
 import { imageAssets, mapImageAsset } from './data/images'
 import type { ImageKey } from './data/images'
 
@@ -224,6 +228,29 @@ function matchesMapModeGuide(item: MapModeGuide, query: string) {
   )
 }
 
+function matchesChimpsGuide(item: ChimpsGuide, query: string) {
+  if (!query) return true
+  return [
+    item.title,
+    item.routeType,
+    item.risk,
+    item.summary,
+    item.opener.title,
+    item.opener.body,
+    item.map.name,
+    item.map.difficulty,
+    item.map.focus,
+    ...item.opener.towers,
+    ...item.buildOrder,
+    ...item.placementNotes,
+    ...item.abilityNotes,
+    ...item.failChecks,
+    ...item.alternateCores,
+    ...item.roundPlan.flatMap((round) => [round.rounds, round.plan, round.reason]),
+  ].some((value) => value.toLowerCase().includes(query))
+    || item.tutorialLinks.some((source) => sourceMatchesQuery(source, query))
+}
+
 function categoryApplies(category: Category, item: { category?: Category; difficulty?: string }) {
   if (category === 'All') return true
   if (category === 'Maps') return Boolean(item.difficulty)
@@ -351,6 +378,10 @@ function Tier({ value }: { value: string }) {
   return <span className={`tier tier-${value.replace('+', 'plus').toLowerCase()}`}>{value}</span>
 }
 
+function RiskBadge({ value }: { value: ChimpsGuide['risk'] }) {
+  return <span className={`risk-badge risk-${value.toLowerCase()}`}>{value} risk</span>
+}
+
 function PatchItem({ change }: { change: PatchChange }) {
   return (
     <article className={`patch-item patch-${change.type.toLowerCase()}`}>
@@ -360,6 +391,127 @@ function PatchItem({ change }: { change: PatchChange }) {
         <h3>{change.title}</h3>
         <p>{change.detail}</p>
         <SourceLinks sources={[change.source]} />
+      </div>
+    </article>
+  )
+}
+
+function ChimpsDeepGuide({ guide }: { guide: ChimpsGuide }) {
+  return (
+    <article className="chimps-deep-guide">
+      <MapImageFrame map={guide.map} className="chimps-map-art" priority />
+      <div className="chimps-main">
+        <div className="guide-meta">
+          <span>{guide.map.difficulty}</span>
+          <span>CHIMPS</span>
+          <span>Rounds 6-100</span>
+        </div>
+        <div className="chimps-title-row">
+          <div>
+            <h3>{guide.title}</h3>
+            <p>{guide.summary}</p>
+          </div>
+          <RiskBadge value={guide.risk} />
+        </div>
+
+        <section className="chimps-opener" aria-label="Recommended CHIMPS opener">
+          <div>
+            <ShieldCheck size={18} aria-hidden="true" />
+            <h4>{guide.opener.title}</h4>
+          </div>
+          <p>{guide.opener.body}</p>
+          <div className="works-with">
+            {guide.opener.towers.map((tower) => (
+              <span key={tower}>{tower}</span>
+            ))}
+          </div>
+        </section>
+
+        <div className="chimps-columns">
+          <section>
+            <div className="mini-heading">
+              <ListChecks size={16} aria-hidden="true" />
+              <h4>Build Order</h4>
+            </div>
+            <ol>
+              {guide.buildOrder.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+          <section>
+            <div className="mini-heading">
+              <AlertTriangle size={16} aria-hidden="true" />
+              <h4>Fail Checks</h4>
+            </div>
+            <ul>
+              {guide.failChecks.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        <section className="round-plan" aria-label="CHIMPS round checkpoints">
+          <div className="mini-heading">
+            <CalendarDays size={16} aria-hidden="true" />
+            <h4>Round Checkpoints</h4>
+          </div>
+          <div className="round-plan-grid">
+            {guide.roundPlan.map((round) => (
+              <article key={round.rounds}>
+                <strong>{round.rounds}</strong>
+                <p>{round.plan}</p>
+                <span>{round.reason}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div className="chimps-columns">
+          <section>
+            <div className="mini-heading">
+              <Map size={16} aria-hidden="true" />
+              <h4>Placement Notes</h4>
+            </div>
+            <ul>
+              {guide.placementNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <div className="mini-heading">
+              <Zap size={16} aria-hidden="true" />
+              <h4>Ability Timing</h4>
+            </div>
+            <ul>
+              {guide.abilityNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        <section className="alternate-core-row" aria-label="Alternate CHIMPS cores">
+          <div className="mini-heading">
+            <Sparkles size={16} aria-hidden="true" />
+            <h4>Alternate Cores</h4>
+          </div>
+          <div className="works-with">
+            {guide.alternateCores.map((core) => (
+              <span key={core}>{core}</span>
+            ))}
+          </div>
+        </section>
+
+        <section className="tutorial-row" aria-label="CHIMPS tutorial links">
+          <div>
+            <PlayCircle size={17} aria-hidden="true" />
+            <h4>Video / Reference Links</h4>
+          </div>
+          <SourceLinks sources={guide.tutorialLinks} />
+        </section>
       </div>
     </article>
   )
@@ -376,6 +528,12 @@ function App() {
   const selectedMap = mapProfiles.find((map) => map.name === selectedGuideMap) ?? mapProfiles[0]
   const selectedMode = gameModes.find((mode) => mode.name === selectedGuideMode) ?? gameModes.at(-1) ?? gameModes[0]
   const selectedGuide = buildMapModeGuide(selectedMap, selectedMode)
+  const selectedChimpsGuide = buildChimpsGuide(selectedMap)
+  const hasSpecificGuideMap = selectedGuideMap !== 'All maps'
+  const showChimpsDepth =
+    selectedGuideMode === 'CHIMPS'
+    || selectedGuideMode === 'All modes'
+    || normalizedQuery.includes('chimps')
 
   useEffect(() => {
     const handleHashChange = () => setActiveTab(resolveTabFromHash())
@@ -399,6 +557,7 @@ function App() {
     () => mapProfiles.flatMap((map) => gameModes.map((mode) => buildMapModeGuide(map, mode))),
     [],
   )
+  const allChimpsGuides = useMemo(() => mapProfiles.map((map) => buildChimpsGuide(map)), [])
 
   const filteredFeaturedGuides = useMemo(
     () =>
@@ -415,6 +574,16 @@ function App() {
           && matchesMapModeGuide(guide, normalizedQuery),
       ),
     [allMapModeGuides, normalizedQuery, selectedGuideMap, selectedGuideMode],
+  )
+
+  const filteredChimpsGuides = useMemo(
+    () =>
+      allChimpsGuides.filter(
+        (guide) =>
+          (selectedGuideMap === 'All maps' || guide.map.name === selectedGuideMap)
+          && matchesChimpsGuide(guide, normalizedQuery),
+      ),
+    [allChimpsGuides, normalizedQuery, selectedGuideMap],
   )
 
   const filteredPatches = useMemo(
@@ -469,11 +638,13 @@ function App() {
     strategies: strategyCards.filter((item) => matchesStrategy(item, normalizedQuery)).length,
     guides: normalizedQuery
       ? allMapModeGuides.filter((item) => matchesMapModeGuide(item, normalizedQuery)).length
-      : totalMapModeGuides,
+        + allChimpsGuides.filter((item) => matchesChimpsGuide(item, normalizedQuery)).length
+      : totalMapModeGuides + mapProfiles.length,
     towers: filteredTowers.length,
     maps: mapProfiles.filter((item) => matchesMap(item, normalizedQuery)).length,
   }
   const visibleMapModeGuides = filteredMapModeGuides.slice(0, 120)
+  const visibleChimpsGuides = filteredChimpsGuides.slice(0, 36)
 
   return (
     <div className="app-shell">
@@ -911,30 +1082,81 @@ function App() {
                   </button>
                 </div>
 
-                <article className="guide-detail">
-                  <MapImageFrame map={selectedGuide.map} className="guide-detail-image" priority />
-                  <div className="guide-detail-body">
-                    <div className="guide-meta">
-                      <span>{selectedGuide.map.difficulty}</span>
-                      <span>{selectedGuide.mode.name}</span>
-                      <span>{selectedGuide.mode.rounds}</span>
+                {hasSpecificGuideMap && showChimpsDepth && <ChimpsDeepGuide guide={selectedChimpsGuide} />}
+
+                {hasSpecificGuideMap && !showChimpsDepth && (
+                  <article className="guide-detail">
+                    <MapImageFrame map={selectedGuide.map} className="guide-detail-image" priority />
+                    <div className="guide-detail-body">
+                      <div className="guide-meta">
+                        <span>{selectedGuide.map.difficulty}</span>
+                        <span>{selectedGuide.mode.name}</span>
+                        <span>{selectedGuide.mode.rounds}</span>
+                      </div>
+                      <h3>{selectedGuide.title}</h3>
+                      <p>{selectedGuide.summary}</p>
+                      <ol>
+                        {selectedGuide.steps.map((step) => (
+                          <li key={step}>{step}</li>
+                        ))}
+                      </ol>
+                      <div className="works-with">
+                        {selectedGuide.priorityTowers.map((tower) => (
+                          <span key={tower}>{tower}</span>
+                        ))}
+                      </div>
+                      <p className="watch-out">{selectedGuide.warning}</p>
+                      <SourceLinks sources={[sourceRefs.wikiMaps, sourceRefs.wikiV55]} />
                     </div>
-                    <h3>{selectedGuide.title}</h3>
-                    <p>{selectedGuide.summary}</p>
-                    <ol>
-                      {selectedGuide.steps.map((step) => (
-                        <li key={step}>{step}</li>
-                      ))}
-                    </ol>
-                    <div className="works-with">
-                      {selectedGuide.priorityTowers.map((tower) => (
-                        <span key={tower}>{tower}</span>
-                      ))}
+                  </article>
+                )}
+
+                {showChimpsDepth && (
+                  <section className="chimps-index" aria-labelledby="chimps-index-title">
+                    <div className="guidebook-heading">
+                      <div>
+                        <h3 id="chimps-index-title">CHIMPS Deep Guides</h3>
+                        <p>
+                          Showing {visibleChimpsGuides.length} of {filteredChimpsGuides.length} map-specific CHIMPS plans.
+                        </p>
+                      </div>
+                      {filteredChimpsGuides.length > visibleChimpsGuides.length && (
+                        <span>Use map or search filters to narrow the full CHIMPS guide index.</span>
+                      )}
                     </div>
-                    <p className="watch-out">{selectedGuide.warning}</p>
-                    <SourceLinks sources={[sourceRefs.wikiMaps, sourceRefs.wikiV55]} />
-                  </div>
-                </article>
+                    <div className="chimps-card-grid">
+                      {visibleChimpsGuides.map((guide) => (
+                        <article className="chimps-mini-card" key={guide.id}>
+                          <MapImageFrame map={guide.map} className="chimps-mini-image" />
+                          <div>
+                            <div className="guide-meta">
+                              <span>{guide.map.difficulty}</span>
+                              <span>{guide.routeType}</span>
+                            </div>
+                            <h3>{guide.map.name}</h3>
+                            <p>{guide.summary}</p>
+                            <div className="chimps-mini-actions">
+                              <RiskBadge value={guide.risk} />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedGuideMap(guide.map.name)
+                                  setSelectedGuideMode('CHIMPS')
+                                }}
+                              >
+                                Open guide
+                              </button>
+                            </div>
+                            <SourceLinks sources={[guide.tutorialLinks[0]]} />
+                          </div>
+                        </article>
+                      ))}
+                      {filteredChimpsGuides.length === 0 && (
+                        <p className="empty-state">No CHIMPS deep guides match this search.</p>
+                      )}
+                    </div>
+                  </section>
+                )}
 
                 <div className="guidebook-heading">
                   <div>
