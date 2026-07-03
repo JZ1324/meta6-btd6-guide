@@ -1626,6 +1626,10 @@ h1 {
   padding-left: 18px;
 }
 
+.guide-detail-anchor {
+  scroll-margin-top: 98px;
+}
+
 .chimps-deep-guide {
   display: grid;
   grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
@@ -1837,6 +1841,21 @@ h1 {
   border-radius: 7px;
 }
 
+.guide-select-card {
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.guide-select-card:hover,
+.guide-select-card:focus-within {
+  background: rgba(28, 39, 55, 0.96);
+  border-color: rgba(250, 204, 21, 0.52);
+  transform: translateY(-1px);
+}
+
 .chimps-mini-image {
   aspect-ratio: 16 / 9;
   border-radius: 0;
@@ -1855,7 +1874,11 @@ h1 {
   gap: 8px;
 }
 
-.chimps-mini-actions button {
+.card-open-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 28px;
   padding: 0 9px;
   color: #dbe7f5;
@@ -1867,8 +1890,8 @@ h1 {
   cursor: pointer;
 }
 
-.chimps-mini-actions button:hover,
-.chimps-mini-actions button:focus-visible {
+.card-open-button:hover,
+.card-open-button:focus-visible {
   color: #10151f;
   background: var(--banana);
   border-color: rgba(250, 204, 21, 0.72);
@@ -1929,6 +1952,11 @@ h1 {
 .mode-guide-card strong {
   color: #dbe7f5;
   font-size: 11px;
+}
+
+.mode-guide-card .card-open-button {
+  width: max-content;
+  margin-top: 2px;
 }
 
 .mode-guide-image {

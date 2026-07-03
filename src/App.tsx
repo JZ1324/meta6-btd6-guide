@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
@@ -396,6 +397,10 @@ function PatchItem({ change }: { change: PatchChange }) {
   )
 }
 
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('a, button, input, select, textarea'))
+}
+
 function ChimpsDeepGuide({ guide }: { guide: ChimpsGuide }) {
   return (
     <article className="chimps-deep-guide">
@@ -522,6 +527,8 @@ function App() {
   const [query, setQuery] = useState('')
   const [selectedGuideMap, setSelectedGuideMap] = useState('Monkey Meadow')
   const [selectedGuideMode, setSelectedGuideMode] = useState('CHIMPS')
+  const guideDetailRef = useRef<HTMLDivElement | null>(null)
+  const shouldScrollGuideRef = useRef(false)
   const normalizedQuery = query.trim().toLowerCase()
   const activeTabMeta = appTabs.find((tab) => tab.id === activeTab) ?? appTabs[0]
   const activeFilter = activeTabMeta.filter
@@ -546,6 +553,46 @@ function App() {
     setActiveTab(tab)
     window.history.replaceState(null, '', `#${tab}`)
   }
+
+  const scrollGuideIntoView = () => {
+    if (typeof window === 'undefined') return
+
+    const scroll = () => {
+      guideDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
+    window.requestAnimationFrame(scroll)
+    window.setTimeout(scroll, 120)
+  }
+
+  const openGuide = (mapName: string, modeName: string) => {
+    shouldScrollGuideRef.current = true
+    setSelectedGuideMap(mapName)
+    setSelectedGuideMode(modeName)
+
+    window.setTimeout(() => {
+      if (!shouldScrollGuideRef.current) return
+
+      shouldScrollGuideRef.current = false
+      scrollGuideIntoView()
+    }, 0)
+  }
+
+  const openGuideFromCard = (
+    event: MouseEvent<HTMLElement>,
+    mapName: string,
+    modeName: string,
+  ) => {
+    if (isInteractiveTarget(event.target)) return
+    openGuide(mapName, modeName)
+  }
+
+  useEffect(() => {
+    if (!shouldScrollGuideRef.current) return
+
+    shouldScrollGuideRef.current = false
+    scrollGuideIntoView()
+  }, [selectedGuideMap, selectedGuideMode])
 
   const filteredMeta = useMemo(
     () =>
@@ -1082,34 +1129,36 @@ function App() {
                   </button>
                 </div>
 
-                {hasSpecificGuideMap && showChimpsDepth && <ChimpsDeepGuide guide={selectedChimpsGuide} />}
+                <div ref={guideDetailRef} className="guide-detail-anchor" data-guide-detail>
+                  {hasSpecificGuideMap && showChimpsDepth && <ChimpsDeepGuide guide={selectedChimpsGuide} />}
 
-                {hasSpecificGuideMap && !showChimpsDepth && (
-                  <article className="guide-detail">
-                    <MapImageFrame map={selectedGuide.map} className="guide-detail-image" priority />
-                    <div className="guide-detail-body">
-                      <div className="guide-meta">
-                        <span>{selectedGuide.map.difficulty}</span>
-                        <span>{selectedGuide.mode.name}</span>
-                        <span>{selectedGuide.mode.rounds}</span>
+                  {hasSpecificGuideMap && !showChimpsDepth && (
+                    <article className="guide-detail">
+                      <MapImageFrame map={selectedGuide.map} className="guide-detail-image" priority />
+                      <div className="guide-detail-body">
+                        <div className="guide-meta">
+                          <span>{selectedGuide.map.difficulty}</span>
+                          <span>{selectedGuide.mode.name}</span>
+                          <span>{selectedGuide.mode.rounds}</span>
+                        </div>
+                        <h3>{selectedGuide.title}</h3>
+                        <p>{selectedGuide.summary}</p>
+                        <ol>
+                          {selectedGuide.steps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ol>
+                        <div className="works-with">
+                          {selectedGuide.priorityTowers.map((tower) => (
+                            <span key={tower}>{tower}</span>
+                          ))}
+                        </div>
+                        <p className="watch-out">{selectedGuide.warning}</p>
+                        <SourceLinks sources={[sourceRefs.wikiMaps, sourceRefs.wikiV55]} />
                       </div>
-                      <h3>{selectedGuide.title}</h3>
-                      <p>{selectedGuide.summary}</p>
-                      <ol>
-                        {selectedGuide.steps.map((step) => (
-                          <li key={step}>{step}</li>
-                        ))}
-                      </ol>
-                      <div className="works-with">
-                        {selectedGuide.priorityTowers.map((tower) => (
-                          <span key={tower}>{tower}</span>
-                        ))}
-                      </div>
-                      <p className="watch-out">{selectedGuide.warning}</p>
-                      <SourceLinks sources={[sourceRefs.wikiMaps, sourceRefs.wikiV55]} />
-                    </div>
-                  </article>
-                )}
+                    </article>
+                  )}
+                </div>
 
                 {showChimpsDepth && (
                   <section className="chimps-index" aria-labelledby="chimps-index-title">
@@ -1126,7 +1175,11 @@ function App() {
                     </div>
                     <div className="chimps-card-grid">
                       {visibleChimpsGuides.map((guide) => (
-                        <article className="chimps-mini-card" key={guide.id}>
+                        <article
+                          className="chimps-mini-card guide-select-card"
+                          key={guide.id}
+                          onClick={(event) => openGuideFromCard(event, guide.map.name, 'CHIMPS')}
+                        >
                           <MapImageFrame map={guide.map} className="chimps-mini-image" />
                           <div>
                             <div className="guide-meta">
@@ -1138,13 +1191,12 @@ function App() {
                             <div className="chimps-mini-actions">
                               <RiskBadge value={guide.risk} />
                               <button
+                                className="card-open-button"
                                 type="button"
-                                onClick={() => {
-                                  setSelectedGuideMap(guide.map.name)
-                                  setSelectedGuideMode('CHIMPS')
-                                }}
+                                onClick={() => openGuide(guide.map.name, 'CHIMPS')}
                               >
                                 Open guide
+                                <ChevronRight size={13} aria-hidden="true" />
                               </button>
                             </div>
                             <SourceLinks sources={[guide.tutorialLinks[0]]} />
@@ -1172,7 +1224,11 @@ function App() {
 
                 <div className="mode-guide-grid">
                   {visibleMapModeGuides.map((guide) => (
-                    <article className="mode-guide-card" key={guide.id}>
+                    <article
+                      className="mode-guide-card guide-select-card"
+                      key={guide.id}
+                      onClick={(event) => openGuideFromCard(event, guide.map.name, guide.mode.name)}
+                    >
                       <MapImageFrame map={guide.map} className="mode-guide-image" />
                       <div>
                         <div className="guide-meta">
@@ -1182,6 +1238,14 @@ function App() {
                         <h3>{guide.title}</h3>
                         <p>{guide.summary}</p>
                         <strong>{guide.warning}</strong>
+                        <button
+                          className="card-open-button"
+                          type="button"
+                          onClick={() => openGuide(guide.map.name, guide.mode.name)}
+                        >
+                          Open guide
+                          <ChevronRight size={13} aria-hidden="true" />
+                        </button>
                       </div>
                     </article>
                   ))}
