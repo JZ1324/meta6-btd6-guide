@@ -4,6 +4,8 @@ Meta6 is a fan-made Bloons TD 6 strategy site for current metas, patch changes, 
 
 The site is built with React, TypeScript, and Vite. It uses source-linked BTD6 imagery from official press-kit material and community/wiki references where appropriate.
 
+Live site: https://meta6-btd6-guide.vercel.app
+
 ## Features
 
 - Dark, tabbed dashboard UI for fast navigation.
