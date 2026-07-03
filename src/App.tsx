@@ -48,6 +48,13 @@ import type {
   TowerRating,
 } from './data/content'
 import {
+  beginnerMapStages,
+  beginnerRules,
+  beginnerSources,
+  beginnerUnlocks,
+} from './data/beginner'
+import type { BeginnerMapStage, BeginnerRule, BeginnerUnlock } from './data/beginner'
+import {
   buildChimpsGuide,
   buildMapModeGuide,
   gameModes,
@@ -58,7 +65,7 @@ import type { ChimpsGuide, GameMode, MapModeGuide, MapProfile } from './data/map
 import { imageAssets, mapImageAsset } from './data/images'
 import type { ImageKey } from './data/images'
 
-type AppTab = 'meta' | 'changes' | 'heroes' | 'paragons' | 'strategies' | 'guides' | 'towers' | 'maps'
+type AppTab = 'meta' | 'beginner' | 'changes' | 'heroes' | 'paragons' | 'strategies' | 'guides' | 'towers' | 'maps'
 
 const appTabs: Array<{
   id: AppTab
@@ -68,6 +75,7 @@ const appTabs: Array<{
   icon: LucideIcon
 }> = [
   { id: 'meta', label: 'Meta', description: 'Ranked current picks', filter: 'All', icon: Trophy },
+  { id: 'beginner', label: 'Beginner', description: 'Start path and unlocks', filter: 'Beginner', icon: Sparkles },
   { id: 'changes', label: 'Changes', description: 'Buffs, nerfs, fixes', filter: 'All', icon: CalendarDays },
   { id: 'heroes', label: 'Heroes', description: 'Hero tier list', filter: 'Heroes', icon: UserRound },
   { id: 'paragons', label: 'Paragons', description: 'Boss and freeplay priority', filter: 'Paragons', icon: Gem },
@@ -78,6 +86,9 @@ const appTabs: Array<{
 ]
 
 const tabAliases: Record<string, AppTab> = {
+  start: 'beginner',
+  beginners: 'beginner',
+  'beginner-guide': 'beginner',
   patches: 'changes',
   strats: 'strategies',
   strategy: 'strategies',
@@ -86,6 +97,7 @@ const tabAliases: Record<string, AppTab> = {
 }
 
 const popularFilters: Array<{ label: string; tab: AppTab }> = [
+  { label: 'Start here', tab: 'beginner' },
   { label: 'Ravine', tab: 'maps' },
   { label: 'Adora', tab: 'heroes' },
   { label: 'Pat Fusty', tab: 'heroes' },
@@ -227,6 +239,40 @@ function matchesMapModeGuide(item: MapModeGuide, query: string) {
     || item.steps.some((step) => step.toLowerCase().includes(query))
     || item.priorityTowers.some((tower) => tower.toLowerCase().includes(query))
   )
+}
+
+function matchesBeginnerUnlock(item: BeginnerUnlock, query: string) {
+  if (!query) return true
+  return [
+    item.title,
+    item.kind,
+    item.priority,
+    item.why,
+    item.firstGoal,
+    item.avoid,
+    ...item.tags,
+  ].some((value) => value.toLowerCase().includes(query))
+    || item.sources.some((source) => sourceMatchesQuery(source, query))
+}
+
+function matchesBeginnerStage(item: BeginnerMapStage, query: string) {
+  if (!query) return true
+  return [
+    item.title,
+    item.level,
+    item.goal,
+    item.danger,
+    item.nextAction,
+    ...item.mapNames,
+    ...item.medals,
+    ...item.unlockFocus,
+  ].some((value) => value.toLowerCase().includes(query))
+    || item.sources.some((source) => sourceMatchesQuery(source, query))
+}
+
+function matchesBeginnerRule(item: BeginnerRule, query: string) {
+  if (!query) return true
+  return [item.title, item.detail].some((value) => value.toLowerCase().includes(query))
 }
 
 function matchesChimpsGuide(item: ChimpsGuide, query: string) {
@@ -527,6 +573,8 @@ function App() {
   const [query, setQuery] = useState('')
   const [selectedGuideMap, setSelectedGuideMap] = useState('Monkey Meadow')
   const [selectedGuideMode, setSelectedGuideMode] = useState('CHIMPS')
+  const [selectedBeginnerStageId, setSelectedBeginnerStageId] = useState(beginnerMapStages[0].id)
+  const [selectedBeginnerMapName, setSelectedBeginnerMapName] = useState(beginnerMapStages[0].mapNames[0])
   const guideDetailRef = useRef<HTMLDivElement | null>(null)
   const shouldScrollGuideRef = useRef(false)
   const normalizedQuery = query.trim().toLowerCase()
@@ -536,6 +584,13 @@ function App() {
   const selectedMode = gameModes.find((mode) => mode.name === selectedGuideMode) ?? gameModes.at(-1) ?? gameModes[0]
   const selectedGuide = buildMapModeGuide(selectedMap, selectedMode)
   const selectedChimpsGuide = buildChimpsGuide(selectedMap)
+  const selectedBeginnerStage =
+    beginnerMapStages.find((stage) => stage.id === selectedBeginnerStageId) ?? beginnerMapStages[0]
+  const beginnerStageMaps = selectedBeginnerStage.mapNames
+    .map((name) => mapProfiles.find((map) => map.name === name))
+    .filter((map): map is MapProfile => Boolean(map))
+  const selectedBeginnerMap =
+    beginnerStageMaps.find((map) => map.name === selectedBeginnerMapName) ?? beginnerStageMaps[0] ?? mapProfiles[0]
   const hasSpecificGuideMap = selectedGuideMap !== 'All maps'
   const showChimpsDepth =
     selectedGuideMode === 'CHIMPS'
@@ -552,6 +607,11 @@ function App() {
   const selectTab = (tab: AppTab) => {
     setActiveTab(tab)
     window.history.replaceState(null, '', `#${tab}`)
+  }
+
+  const selectBeginnerStage = (stage: BeginnerMapStage) => {
+    setSelectedBeginnerStageId(stage.id)
+    setSelectedBeginnerMapName(stage.mapNames[0])
   }
 
   const scrollGuideIntoView = () => {
@@ -576,6 +636,14 @@ function App() {
       shouldScrollGuideRef.current = false
       scrollGuideIntoView()
     }, 0)
+  }
+
+  const openGuidebook = (mapName: string, modeName: string) => {
+    shouldScrollGuideRef.current = true
+    setSelectedGuideMap(mapName)
+    setSelectedGuideMode(modeName)
+    selectTab('guides')
+    window.setTimeout(scrollGuideIntoView, 160)
   }
 
   const openGuideFromCard = (
@@ -673,12 +741,28 @@ function App() {
     [activeFilter, normalizedQuery],
   )
 
+  const filteredBeginnerUnlocks = useMemo(
+    () => beginnerUnlocks.filter((item) => matchesBeginnerUnlock(item, normalizedQuery)),
+    [normalizedQuery],
+  )
+
+  const filteredBeginnerStages = useMemo(
+    () => beginnerMapStages.filter((item) => matchesBeginnerStage(item, normalizedQuery)),
+    [normalizedQuery],
+  )
+
+  const filteredBeginnerRules = useMemo(
+    () => beginnerRules.filter((item) => matchesBeginnerRule(item, normalizedQuery)),
+    [normalizedQuery],
+  )
+
   const buffCount = patchChanges.filter((item) => item.type === 'Buff').length
   const nerfCount = patchChanges.filter((item) => item.type === 'Nerf').length
   const changeCount = patchChanges.filter((item) => item.type === 'Change' || item.type === 'Fix').length
   const patchGroups: PatchChange['type'][] = ['Buff', 'Nerf', 'Change', 'Fix']
   const tabCounts: Record<AppTab, number> = {
     meta: metaPicks.filter((item) => matchesMeta(item, normalizedQuery)).length,
+    beginner: filteredBeginnerUnlocks.length + filteredBeginnerStages.length + filteredBeginnerRules.length,
     changes: filteredPatches.length,
     heroes: heroTiers.filter((item) => matchesHero(item, normalizedQuery)).length,
     paragons: paragonTiers.filter((item) => matchesParagon(item, normalizedQuery)).length,
@@ -919,6 +1003,173 @@ function App() {
                     <p className="empty-state">No meta picks match this search.</p>
                   )}
                 </div>
+              </section>
+            )}
+
+            {activeTab === 'beginner' && (
+              <section className="panel beginner-panel" aria-labelledby="beginner-title">
+                <div className="section-heading">
+                  <div>
+                    <h2 id="beginner-title">Beginner Start Path</h2>
+                    <p>
+                      Unlock order, first maps, medal route, and an interactive map path for new players.
+                    </p>
+                  </div>
+                  <SourceLinks
+                    sources={[
+                      beginnerSources.beginnerMaps,
+                      beginnerSources.monkeyKnowledge,
+                      beginnerSources.medals,
+                    ]}
+                  />
+                </div>
+
+                <div className="beginner-command">
+                  <section className="beginner-unlocks" aria-labelledby="unlock-title">
+                    <div className="beginner-section-title">
+                      <ListChecks size={16} aria-hidden="true" />
+                      <h3 id="unlock-title">What To Unlock First</h3>
+                    </div>
+                    <div className="unlock-stack">
+                      {filteredBeginnerUnlocks.map((unlock) => (
+                        <article className="unlock-card" key={unlock.title}>
+                          <div className="unlock-rank">{unlock.rank}</div>
+                          <div>
+                            <div className="guide-meta">
+                              <span>{unlock.kind}</span>
+                              <span>{unlock.priority}</span>
+                            </div>
+                            <h3>{unlock.title}</h3>
+                            <p>{unlock.why}</p>
+                            <strong>{unlock.firstGoal}</strong>
+                            <p className="watch-out">{unlock.avoid}</p>
+                            <SourceLinks sources={unlock.sources} />
+                          </div>
+                        </article>
+                      ))}
+                      {filteredBeginnerUnlocks.length === 0 && (
+                        <p className="empty-state">No beginner unlock notes match this search.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <aside className="beginner-rules" aria-labelledby="rules-title">
+                    <div className="beginner-section-title">
+                      <ShieldCheck size={16} aria-hidden="true" />
+                      <h3 id="rules-title">Beginner Rules</h3>
+                    </div>
+                    <div className="rule-list">
+                      {filteredBeginnerRules.map((rule) => (
+                        <article key={rule.title}>
+                          <h3>{rule.title}</h3>
+                          <p>{rule.detail}</p>
+                        </article>
+                      ))}
+                      {filteredBeginnerRules.length === 0 && (
+                        <p className="empty-state">No beginner rules match this search.</p>
+                      )}
+                    </div>
+                  </aside>
+                </div>
+
+                <section className="beginner-route" aria-labelledby="route-title">
+                  <div className="guidebook-heading">
+                    <div>
+                      <h3 id="route-title">Interactive Beginner Map</h3>
+                      <p>
+                        Pick a stage, then click a map node to see what to practice and where to go next.
+                      </p>
+                    </div>
+                    <SourceLinks sources={[beginnerSources.mapPlaylist, beginnerSources.maps]} />
+                  </div>
+
+                  <div className="beginner-route-layout">
+                    <div className="stage-rail" aria-label="Beginner route stages">
+                      {filteredBeginnerStages.map((stage) => (
+                        <button
+                          className={stage.id === selectedBeginnerStage.id ? 'active' : ''}
+                          key={stage.id}
+                          type="button"
+                          onClick={() => selectBeginnerStage(stage)}
+                        >
+                          <span>{stage.level}</span>
+                          <strong>{stage.title}</strong>
+                          <small>{stage.mapNames.join(' -> ')}</small>
+                        </button>
+                      ))}
+                      {filteredBeginnerStages.length === 0 && (
+                        <p className="empty-state">No beginner map stages match this search.</p>
+                      )}
+                    </div>
+
+                    <div className="interactive-map-panel">
+                      <div className="map-node-strip" aria-label={`${selectedBeginnerStage.title} maps`}>
+                        {beginnerStageMaps.map((map, index) => (
+                          <button
+                            className={map.name === selectedBeginnerMap.name ? 'active' : ''}
+                            key={map.name}
+                            type="button"
+                            onClick={() => setSelectedBeginnerMapName(map.name)}
+                          >
+                            <span>{index + 1}</span>
+                            <strong>{map.name}</strong>
+                            <small>{map.difficulty}</small>
+                          </button>
+                        ))}
+                      </div>
+
+                      <article className="selected-beginner-map">
+                        <MapImageFrame map={selectedBeginnerMap} className="selected-map-image" priority />
+                        <div>
+                          <div className="guide-meta">
+                            <span>{selectedBeginnerStage.title}</span>
+                            <span>{selectedBeginnerMap.difficulty}</span>
+                            <span>{selectedBeginnerMap.laneProfile}</span>
+                          </div>
+                          <h3>{selectedBeginnerMap.name}</h3>
+                          <p>{selectedBeginnerStage.goal}</p>
+                          <div className="beginner-detail-grid">
+                            <section>
+                              <h4>Do These Medals</h4>
+                              <ul>
+                                {selectedBeginnerStage.medals.map((medal) => (
+                                  <li key={medal}>{medal}</li>
+                                ))}
+                              </ul>
+                            </section>
+                            <section>
+                              <h4>Unlock Focus</h4>
+                              <ul>
+                                {selectedBeginnerStage.unlockFocus.map((focus) => (
+                                  <li key={focus}>{focus}</li>
+                                ))}
+                              </ul>
+                            </section>
+                          </div>
+                          <p className="watch-out">{selectedBeginnerStage.danger}</p>
+                          <strong>{selectedBeginnerStage.nextAction}</strong>
+                          <div className="beginner-actions">
+                            <button
+                              type="button"
+                              onClick={() => openGuidebook(selectedBeginnerMap.name, 'Hard')}
+                            >
+                              Open Hard guide
+                              <ChevronRight size={14} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openGuidebook(selectedBeginnerMap.name, 'CHIMPS')}
+                            >
+                              CHIMPS later
+                              <ChevronRight size={14} aria-hidden="true" />
+                            </button>
+                          </div>
+                          <SourceLinks sources={selectedBeginnerStage.sources} />
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                </section>
               </section>
             )}
 
